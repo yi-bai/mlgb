@@ -49,3 +49,8 @@ a JSON-Array is parsed similarly to JSON-Object. A `No value` element will not b
 ### MLGB-Sharp
 if first grid of first row is `#`, it will be parsed as a "MLGB-Sharp".
 ...tbc
+1. 找左上角的#块，将整个区域分割成四块
+2. 找行的分块索引
+3. 找列的分块索引，找的时候顺便找出折叠边，具体方法：按列-行的顺序找非空的单元格，当找到#时发现折叠边，折叠边1.不能是第一行，2.找#所在行的上一行，向右找第一个非空块，以#为左上边，第一个非空块为右边，整个列的底边为底边，将这一块放入折叠边块。与此同时，找列分块索引时跳过折叠边放入的所有列。
+4. 按行列分块索引，将右下块分割，并将折叠边加入，求值
+5. 将右下块插入到转置后的列块，将转置后的列块插入到行块，对行块求值，结束。
