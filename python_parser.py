@@ -1,18 +1,9 @@
-from apiclient import discovery
-import json, time
-
-discoveryUrl = ('https://sheets.googleapis.com/$discovery/rest?version=v4')
-service = discovery.build('sheets', 'v4', developerKey='AIzaSyDk90mbxnE2U3nl0xf00djXH0LfmGYQfZ4')
+import json, time, sys
+from google_sheet import GoogleSheet
 
 def get_file(spreadsheetId):
 	result = service.spreadsheets().values().get(spreadsheetId=spreadsheetId, range='sheet2!A1:ZZ').execute()
 	return result.get('values', [])
-
-def make_matrix(twod):
-	max_size = max([len(row) for row in twod])
-	for row in twod:
-		row += ['' for i in range(max_size - len(row))]
-	return twod
 
 class MatrixAccessor:
 	matrix = [[]]
@@ -34,6 +25,18 @@ class MatrixAccessor:
 		else:
 			return self.matrix[row + self.start_row][self.start_col:]
 
+	def getMatrix(self):
+		return self.getMatrixWithBound(0, self.getHeight(), 0, self.getWidth())
+
+	def getMatrixWithBound(self, up, down, left, right):
+		ret = []
+		for i in range(up, down):
+			row = []
+			for j in range(left, right):
+				row.append(self.getCell(i, j))
+			ret.append(row)
+		return ret
+
 	def getCell(self, row, col):
 		return self.matrix[row + self.start_row][col + self.start_col]
 
@@ -50,29 +53,32 @@ class MlgbNoContent:
 	def __init__(self):
 		return
 
-def mlgb(accessor):
+def mlgb(accessor, rangeGetter):
 	if not isinstance(accessor.getCell(0,0), basestring):
 		return accessor.getCell(0,0)
 
 	(height, width) = (accessor.getHeight(), accessor.getWidth())
+	#print height,width
 	if height == 0 or width == 0:
 		return MlgbNoContent()
 	elif (height == 1 or not accessor.getCell(1,0)) and (width == 1 or not accessor.getCell(0,1)):
-		return parseJsonString(accessor.getCell(0,0)) if accessor.getCell(0,0) != "" else MlgbNoContent()
+		return parseJsonString(accessor.getCell(0,0), rangeGetter) if accessor.getCell(0,0) != "" else MlgbNoContent()
 	elif accessor.getCell(0,0) == "-":
-		return mlgbList(accessor)
+		return mlgbList(accessor, rangeGetter)
 	elif accessor.getCell(0,0) == "#":
-		return mlgbSharp(accessor)
+		return mlgbSharp(accessor, rangeGetter)
 	else:
-		return mlgbObject(accessor)
+		return mlgbObject(accessor, rangeGetter)
 
-def parseJsonString(string):
+def parseJsonString(string, rangeGetter):
 	if string == "TRUE": return True
 	if string == "FALSE": return False
 	try: return json.loads(string)
-	except ValueError: return string
+	except ValueError:
+		if string.startswith("mlgb://"): return mlgb(MatrixAccessor(rangeGetter(string[7:]), 0, 0), rangeGetter)
+		return string
 
-def mlgbList(accessor):
+def mlgbList(accessor, rangeGetter):
 	indexRowsNumbers = []
 	for i in range(accessor.getHeight()):
 		cell = accessor.getCell(i,0)
@@ -84,10 +90,10 @@ def mlgbList(accessor):
 	lenIndexRowNumbers = len(indexRowsNumbers)
 	for i, indexRowsNumber in enumerate(indexRowsNumbers):
 		accessorHeight = indexRowsNumbers[i+1] - indexRowsNumber if i != lenIndexRowNumbers - 1 else accessor.getHeight() - indexRowsNumber
-		elems.append(mlgb(MatrixAccessor(accessor, indexRowsNumber, 1, accessorHeight, accessor.getWidth() - 1)))
+		elems.append(mlgb(MatrixAccessor(accessor, indexRowsNumber, 1, accessorHeight, accessor.getWidth() - 1), rangeGetter))
 	return filter(lambda x: not isinstance(x, MlgbNoContent), elems)
 
-def mlgbObject(accessor):
+def mlgbObject(accessor, rangeGetter):
 	if accessor.getWidth() == 1:
 		return None
 	rowKeyList = []
@@ -100,7 +106,7 @@ def mlgbObject(accessor):
 		accessorHeight = rowKeyList[i+1]["row"] - rowKey["row"] if i != lenRowKeyList - 1 else accessor.getHeight() - rowKey["row"]
 		elems.append({
 			"keys": rowKey["key"] if rowKey["key"]=="..." else rowKey["key"].split("."),
-			"value": mlgb(MatrixAccessor(accessor, rowKey["row"], 1, accessorHeight, accessor.getWidth() - 1))
+			"value": mlgb(MatrixAccessor(accessor, rowKey["row"], 1, accessorHeight, accessor.getWidth() - 1), rangeGetter)
 		})
 	# Expand ...
 	if len(elems) == 1 and elems[0]["keys"]=="...":
@@ -122,7 +128,7 @@ def mlgbObject(accessor):
 				curObject[elem["keys"][-1]] = elem["value"]
 	return result if len(result.keys()) else None
 
-def mlgbSharp(accessor):
+def mlgbSharp(accessor, rangeGetter):
 	def findSquareSharps(accessor):
 		sharpRows = 0
 		for i in range(accessor.getHeight()):
@@ -149,13 +155,59 @@ def mlgbSharp(accessor):
 		return ret
 
 	def findColsWithKeys(accessor):
-		ret = []
-		for j in range(accessor.getWidth()):
-			for i in range(accessor.getHeight()):
-				if accessor.getCell(i, j) != "":
-					ret.append(j)
+		#find folded edge
+		cellWithSharp = []
+		# when multiple sharps appear, only the highest one will be used
+		colsWithSharp = []
+		cellFoldedEdgeMapping = {}
+
+		for i in range(accessor.getHeight()):
+			for j in range(accessor.getWidth()):
+				#Folded edge (applying starts from second row)
+				if accessor.getCell(i, j) == "#" and i > 0 and j not in colsWithSharp:
+					cellWithSharp.append((i, j))
+					colsWithSharp.append(j)
+
+		#Folded edge
+		for xy in cellWithSharp:
+			#find next element of row above:
+			up = xy[0]
+			left = xy[1]
+			down = accessor.getHeight()
+			right = accessor.getWidth()
+			for j in range(xy[1] + 1, accessor.getWidth()):
+				if accessor.getCell(up - 1, j) != "":
+					right = j
 					break
-		return ret
+
+			#copy this range to a new matrix
+			cellFoldedEdgeMapping[xy] = accessor.getMatrixWithBound(up, down, left, right)
+
+		#generate a new col
+		cellToErase = []
+		for cell, matrix in cellFoldedEdgeMapping.items():
+			for i in range(len(matrix)):
+				for j in range(len(matrix[0])):
+					cellToErase.append((cell[0]+i, cell[1]+j))
+
+		matrixWithoutFoldedEdge = []
+		for i in range(accessor.getHeight()):
+			row = []
+			for j in range(accessor.getWidth()):
+				row.append(accessor.getCell(i,j) if (i,j) not in cellToErase else "")
+			matrixWithoutFoldedEdge.append(row)
+		matrixWithoutFoldedEdge = MatrixAccessor(matrixWithoutFoldedEdge, 0, 0)
+
+		colsWithKeys = []
+
+		for i in range(matrixWithoutFoldedEdge.getHeight()):
+			for j in range(matrixWithoutFoldedEdge.getWidth()):
+				#columns with key
+				if matrixWithoutFoldedEdge.getCell(i, j) != "" and j not in colsWithKeys:
+					colsWithKeys.append(j)
+
+		colsWithKeys.sort()
+		return (colsWithKeys, cellFoldedEdgeMapping, matrixWithoutFoldedEdge)
 
 	def diffLens(lenList, allLen):
 		list1 = [0] + lenList
@@ -183,7 +235,16 @@ def mlgbSharp(accessor):
 					contentIndex += 1
 					break
 			matrix.append(row)
-		return mlgb(MatrixAccessor(matrix, 0, 0))
+		return mlgb(MatrixAccessor(matrix, 0, 0), rangeGetter)
+
+	#delete empty last rows
+	def clearLastEmptyRows(matrix):
+		downRow = len(matrix)
+		for i in range(len(matrix)):
+			if matrix[i][0] == "":
+				downRow = i
+				break
+		return matrix[0:downRow]
 
 	# find square sharps in left-top corner
 	(sharpRows, sharpCols) = findSquareSharps(accessor)
@@ -191,10 +252,15 @@ def mlgbSharp(accessor):
 
 	rowAxisMatrixAccessor = MatrixAccessor(accessor, sharpRows, 0, accessor.getHeight() - sharpRows, sharpCols)
 	colAxisMatrixAccessor = MatrixAccessor(accessor, 0, sharpCols, sharpRows, accessor.getWidth() - sharpCols)
-	colAxisTransposeMatrixAccessor = transposeMatrixAccessor(colAxisMatrixAccessor)
 
 	rowsWithKeys = [sharpRows + e for e in findRowsWithKeys(rowAxisMatrixAccessor)]
-	colsWithKeys = [sharpCols + e for e in findColsWithKeys(colAxisMatrixAccessor)]
+	#columns with keys, and folded edge will be found
+	(colsWithKeys, cellFoldedEdgeMapping, matrixWithoutFoldedEdge) = findColsWithKeys(colAxisMatrixAccessor)
+	colsWithKeys = [sharpCols + e for e in colsWithKeys]
+
+	#print matrixWithoutFoldedEdge.getMatrix()
+	colAxisTransposeMatrixAccessor = transposeMatrixAccessor(matrixWithoutFoldedEdge)
+	colFoldedEdgeMapping = {k[1]+sharpCols:clearLastEmptyRows(v) for (k,v) in cellFoldedEdgeMapping.items()}
 
 	# empty row keys or col keys
 	(isRowWithKeysEmpty, isColWithKeysEmpty) = (not len(rowsWithKeys), not len(colsWithKeys))
@@ -204,20 +270,33 @@ def mlgbSharp(accessor):
 	rowsLens = diffLens(rowsWithKeys, accessor.getHeight())
 	colsLens = diffLens(colsWithKeys, accessor.getWidth())
 
+	#print colFoldedEdgeMapping, colsWithKeys
+
 	contentsMatrix = []
 	# get contents of cells
 	for i in range(len(rowsWithKeys)):
 		contentsRow = []
 		for j in range(len(colsWithKeys)):
-			contentsRow.append(mlgb(MatrixAccessor(accessor, rowsWithKeys[i], colsWithKeys[j], rowsLens[i], colsLens[j])))
+			if colsWithKeys[j] not in colFoldedEdgeMapping:
+				matrixAccessor = MatrixAccessor(accessor, rowsWithKeys[i], colsWithKeys[j], rowsLens[i], colsLens[j])
+			else:
+				upper = colFoldedEdgeMapping[colsWithKeys[j]] #folded edge
+				#print "hehe",rowsWithKeys[i], colsWithKeys[j], rowsLens[i], colsLens[j]
+				lower = accessor.getMatrixWithBound(rowsWithKeys[i], rowsWithKeys[i]+rowsLens[i], colsWithKeys[j], colsWithKeys[j]+colsLens[j])
+				#print upper+lower
+				matrixAccessor = MatrixAccessor(upper+lower, 0, 0)
+			#print matrixAccessor.getMatrix()
+			contentsRow.append(mlgb(matrixAccessor, rangeGetter))
 		contentsMatrix.append(contentsRow)
 
 	contentsRow = [insertContentWithRowAxis(row, colAxisTransposeMatrixAccessor, isColWithKeysEmpty) for row in contentsMatrix]
 	return insertContentWithRowAxis(contentsRow, rowAxisMatrixAccessor, isRowWithKeysEmpty)
 
-ctx_matrix = make_matrix(get_file('1yX-Ixjc0a8DGSvWys13rYqASR9DffnBeQXWJIyAgVVk'))
+googleSheet = GoogleSheet('AIzaSyDk90mbxnE2U3nl0xf00djXH0LfmGYQfZ4')
+contents = googleSheet.getSpreadsheet(sys.argv[1])
+
 start_time = time.time()
 print 'start parsing'
-res = mlgb(MatrixAccessor(ctx_matrix, 0, 0))
+res = mlgb(MatrixAccessor(contents, 0, 0), googleSheet.getRange)
 print 'end parsing', time.time() - start_time
-print json.dumps(res)
+print json.dumps(res, ensure_ascii=False).encode("utf8")
