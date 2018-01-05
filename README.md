@@ -59,4 +59,4 @@ if first grid of first row is `#`, it will be parsed as a "MLGB-Sharp".
 
 ### MLGB-Link
 
-### XML
+### MLGB-XML
