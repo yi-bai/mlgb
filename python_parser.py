@@ -292,11 +292,10 @@ def mlgbSharp(accessor, rangeGetter):
 	contentsRow = [insertContentWithRowAxis(row, colAxisTransposeMatrixAccessor, isColWithKeysEmpty) for row in contentsMatrix]
 	return insertContentWithRowAxis(contentsRow, rowAxisMatrixAccessor, isRowWithKeysEmpty)
 
-googleSheet = GoogleSheet('AIzaSyDk90mbxnE2U3nl0xf00djXH0LfmGYQfZ4')
-contents = googleSheet.getSpreadsheet(sys.argv[1])
+def parse(spreadsheetId):
 
-start_time = time.time()
-print 'start parsing'
-res = mlgb(MatrixAccessor(contents, 0, 0), googleSheet.getRange)
-print 'end parsing', time.time() - start_time
-print json.dumps(res, ensure_ascii=False).encode("utf8")
+	googleSheet = GoogleSheet('AIzaSyDk90mbxnE2U3nl0xf00djXH0LfmGYQfZ4')
+	contents = googleSheet.getSpreadsheet(spreadsheetId)
+
+	res = mlgb(MatrixAccessor(contents, 0, 0), googleSheet.getRange)
+	return json.dumps(res, ensure_ascii=False).encode("utf8")
