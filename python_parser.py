@@ -136,7 +136,7 @@ def mlgbObject(accessor, rangeGetter):
 	# Concat result
 	result = {}
 	for elem in elems:
-		if elem["keys"] == "..."
+		if elem["keys"] == "...":
 			if isinstance(elem["value"], dict):
 				result.update(elem["value"])
 		else:
