@@ -136,8 +136,9 @@ def mlgbObject(accessor, rangeGetter):
 	# Concat result
 	result = {}
 	for elem in elems:
-		if elem["keys"] == "..." and isinstance(elem["value"], dict):
-			result.update(elem["value"])
+		if elem["keys"] == "..."
+			if isinstance(elem["value"], dict):
+				result.update(elem["value"])
 		else:
 			curObject = result
 			# set keys en route
