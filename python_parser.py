@@ -67,6 +67,13 @@ def mlgb(accessor, rangeGetter):
 		return mlgbList(accessor, rangeGetter)
 	elif accessor.getCell(0,0) == "#":
 		return mlgbSharp(accessor, rangeGetter)
+	elif accessor.getCell(0,0) == '...':
+		# has ..., - -> List
+		allKeys = set([accessor.getCell(i,0) for i in range(height)])
+		if '-' in allKeys and '...' in allKeys:
+			return mlgbList(accessor, rangeGetter)
+		else:
+			return mlgbObject(accessor, rangeGetter)
 	else:
 		return mlgbObject(accessor, rangeGetter)
 
