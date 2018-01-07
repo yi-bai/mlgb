@@ -126,6 +126,7 @@ def mlgbObject(accessor, rangeGetter):
 		return elems[0]["value"]
 
 	# if all keys are ... and values are all list then return list
+	print elems
 	print [elem['keys'] for elem in elems if isinstance(elem['keys'], str)]
 	print [isinstance(elem['value'], list) for elem in elems]
 	if set([elem['keys'] for elem in elems if isinstance(elem['keys'], str)]) == set(['...']) and set([isinstance(elem['value'], list) for elem in elems]) == set([True]):
