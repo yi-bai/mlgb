@@ -82,7 +82,7 @@ def mlgbList(accessor, rangeGetter):
 	indexRowsNumbers = []
 	for i in range(accessor.getHeight()):
 		cell = accessor.getCell(i,0)
-		if cell == '-':
+		if cell == '-' or cell == '...':
 			indexRowsNumbers.append(i)
 		elif cell:
 			return []
@@ -90,7 +90,12 @@ def mlgbList(accessor, rangeGetter):
 	lenIndexRowNumbers = len(indexRowsNumbers)
 	for i, indexRowsNumber in enumerate(indexRowsNumbers):
 		accessorHeight = indexRowsNumbers[i+1] - indexRowsNumber if i != lenIndexRowNumbers - 1 else accessor.getHeight() - indexRowsNumber
-		elems.append(mlgb(MatrixAccessor(accessor, indexRowsNumber, 1, accessorHeight, accessor.getWidth() - 1), rangeGetter))
+		mlgbResult = mlgb(MatrixAccessor(accessor, indexRowsNumber, 1, accessorHeight, accessor.getWidth() - 1), rangeGetter)
+		if accessor.getCell(indexRowsNumber, 0) == '...':
+			if isinstance(mlgbResult, list):
+				elems += mlgbResult
+		else:
+			elems.append(mlgbResult)
 	return filter(lambda x: not isinstance(x, MlgbNoContent), elems)
 
 def mlgbObject(accessor, rangeGetter):
