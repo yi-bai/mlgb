@@ -69,8 +69,8 @@ def mlgb(accessor, rangeGetter):
 		return mlgbSharp(accessor, rangeGetter)
 	elif accessor.getCell(0,0) == '...':
 		# has ..., - -> List
-		allKeys = set([accessor.getCell(i,0) for i in range(height)])
-		if '-' in allKeys and '...' in allKeys:
+		allKeys = set([accessor.getCell(i,0) for i in range(height) if len(accessor.getCell(i,0))])
+		if allKeys == set(['-', '...']):
 			return mlgbList(accessor, rangeGetter)
 		else:
 			return mlgbObject(accessor, rangeGetter)
@@ -120,9 +120,19 @@ def mlgbObject(accessor, rangeGetter):
 			"keys": rowKey["key"] if rowKey["key"]=="..." else rowKey["key"].split("."),
 			"value": mlgb(MatrixAccessor(accessor, rowKey["row"], 1, accessorHeight, accessor.getWidth() - 1), rangeGetter)
 		})
+
 	# Expand ...
 	if len(elems) == 1 and elems[0]["keys"]=="...":
 		return elems[0]["value"]
+
+	# if all keys are ... and values are all list then return list
+	if set([elem['keys'] for elem in elems]) == set(['...'])
+		and set([isinstance(elem['value'], list) for elem in elems]) == set([True]):
+		ret = []
+		for sublist in [elem['value'] for elem in elems]:
+			for item in sublist:
+				ret.append(item)
+		return ret
 
 	# Concat result
 	result = {}
