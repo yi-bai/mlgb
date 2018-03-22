@@ -60,17 +60,7 @@ if first grid of first row is `#`, it will be parsed as a "MLGB-Sharp".
 Prepend `__` to any keys in object or items (-) in array, the key or item will be not parsed. This is useful to prevent intermediate variables from being exported.
 
 ### MLGB with multiple sheets in a spreadsheet file
-There're 3 ways to merge Json across multiple sheets in the same file
-1. (Default) Json in the first sheet will be used.
-
-2. An object will be returned, which contains each sheet's Json as value. The key is the sheet's name.
-    similar to comment, prepending `__` to sheet's name could prevent that sheet from being merged.
-    prepending `.` to sheet's name has similar behavior as in JSON-object
-    appending `{}` to file's name to denote this way of merging.
-
-3. A list will be returned, which contains each sheet as item in list in order.
-    prefix `__` and `.` has similar functionality as in object.
-    appending `[]` to file's name to denote this way of merging.
+Json in the first sheet will be used.
     
 ### MLGB as a folder
 A folder containing several spreadsheets or folders can be parsed as a Json object.
@@ -87,17 +77,20 @@ There're 2 ways to merge Json across files.
 MLGB resource could be registered to a MLGB server with key, which could be accessed by API externally. MLGB server parses MLGB folder or spreadsheet to Json object.
 
 ### MLGB-Link
+There're 2 kinds of link pointing to another part of file or rest of Internet in MLGB.
 1. Link to another sheet in current spreadsheet file
-`${sheetname}`
+`->{sheetname}`
 
-2. Link to another part of json in current file system
-`$/{path}`
+2. Link to other part of Internet
+The general grammar is `->((//{endpoint})/{key})/{path}`
 
-3. Link to another json in current MLGB server
-`$:{key}`
+endpoint: the URL which MLGB server provides, can be omitted when refering to resource in the same server
 
-4. Link to another json anywhere else in Internet
-`$URI`
+key: the key registered in server, could be omitted when refering to resource in the same key
+
+path: path to your part of Json.
+
+Note that link in 2. always starts with a `/`, and always starts with `//` when pointing to other servers.
 
 ### MLGB and XML
 MLGB has no plan to support XML.
