@@ -1,4 +1,4 @@
-import json, time, sys
+import json, time, sys, collections
 from google_sheet import GoogleSheet
 
 def get_file(spreadsheetId):
@@ -134,21 +134,20 @@ def mlgbObject(accessor, rangeGetter):
 		return ret
 
 	# Concat result
-	result = {}
+	result = collections.OrderedDict()
 	for elem in elems:
 		if elem["keys"] == "...":
 			if isinstance(elem["value"], dict):
 				result.update(elem["value"])
-		else:
+		elif not isinstance(elem["value"], MlgbNoContent):
 			curObject = result
 			# set keys en route
 			for key in elem["keys"][0:-1]:
 				if key not in curObject:
-					curObject[key] = {}
+					curObject[key] = collections.OrderedDict()
 				curObject = curObject[key]
-			if not isinstance(elem["value"], MlgbNoContent):
-				curObject[elem["keys"][-1]] = elem["value"]
-	return result if len(result.keys()) else None
+			curObject[elem["keys"][-1]] = elem["value"]
+	return result if len(result.keys()) else MlgbNoContent()
 
 def mlgbSharp(accessor, rangeGetter):
 	def findSquareSharps(accessor):
@@ -321,3 +320,6 @@ def parse(spreadsheetId):
 
 	res = mlgb(MatrixAccessor(contents, 0, 0), googleSheet.getRange)
 	return json.dumps(res, ensure_ascii=False).encode("utf8")
+
+if __name__ == "__main__":
+	print(parse(sys.argv[1]))
