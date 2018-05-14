@@ -82,7 +82,7 @@ def parseJsonString(string, rangeGetter):
 	if string == "FALSE": return False
 	try: return json.loads(string)
 	except ValueError:
-		if string.startswith("mlgb://"): return mlgb(MatrixAccessor(rangeGetter(string[7:]), 0, 0), rangeGetter)
+		if string.startswith("->"): return mlgb(MatrixAccessor(rangeGetter(string[2:]), 0, 0), rangeGetter)
 		return string
 
 def mlgbList(accessor, rangeGetter):
